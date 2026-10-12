@@ -113,4 +113,16 @@ if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
             if storages: filtered_df = filtered_df[filtered_df['Storage'].isin(storages)]
         
         with col_e:
-            screens = st.multiselect("Screen Size", filtered_df['Screen Size'].
+            screens = st.multiselect("Screen Size", filtered_df['Screen Size'].unique())
+            if screens: filtered_df = filtered_df[filtered_df['Screen Size'].isin(screens)]
+
+# --- RESULTS DATA TABLE ---
+st.markdown(f"*Showing {len(filtered_df)} available products*")
+
+visible_columns = ['BRAND', 'MODEL AND DESCRIPTION', 'Processor', 'RAM', 'Storage', 'Screen Size', 'PRICE', 'QTY', 'CONDITION']
+display_df = filtered_df[visible_columns].copy()
+# Format the price nicely
+display_df['PRICE'] = display_df['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
+
+# Render the interactive dataframe
+st.dataframe(display_df, use_container_width=True, hide_index=True)
