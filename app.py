@@ -21,7 +21,6 @@ def load_data(file_path):
     all_data = []
     
     for sheet in xls.sheet_names:
-        # Header is on row 1 (index 1)
         df = pd.read_excel(file_path, sheet_name=sheet, header=1)
         df = df.dropna(subset=['MODEL AND DESCRIPTION'])
         df['Main Category'] = sheet
@@ -32,7 +31,6 @@ def load_data(file_path):
     def extract_specs(row):
         desc = str(row['MODEL AND DESCRIPTION']).upper()
         
-        # Processor
         cpu = "Other"
         if "CORE I3" in desc: cpu = "Intel Core i3"
         elif "CORE I5" in desc: cpu = "Intel Core i5"
@@ -45,15 +43,12 @@ def load_data(file_path):
         elif "RYZEN 9" in desc: cpu = "AMD Ryzen 9"
         elif "APPLE M" in desc: cpu = "Apple Silicon"
         
-        # RAM
         ram_match = re.search(r'(\d+)\s*GB(?:\s*RAM)?', desc)
         ram = f"{ram_match.group(1)}GB" if ram_match else "N/A"
         
-        # Storage
         storage_match = re.search(r'(\d+)\s*(?:GB|TB)\s*(?:SSD|HDD|NVME)', desc)
         storage = storage_match.group(0) if storage_match else "N/A"
         
-        # Screen Size
         screen_match = re.search(r'(\d{2}(?:\.\d)?)\s*(?:"|”|-INCH|INCH|’)', desc)
         screen = f"{screen_match.group(1)}\"" if screen_match else "N/A"
         
@@ -62,99 +57,22 @@ def load_data(file_path):
     df_final[['Processor', 'RAM', 'Storage', 'Screen Size']] = df_final.apply(extract_specs, axis=1)
     return df_final
 
-# Function to add visual stock indicators
 def get_stock_indicator(qty):
     try:
         if pd.isna(qty): return "⚪ N/A"
-        # Extract the number even if it has a '+' sign (like '50+')
         qty_str = str(qty).replace('+', '').strip()
         qty_num = int(qty_str)
-        if qty_num >= 50: 
-            return f"🟢 {qty}"
-        elif qty_num >= 10: 
-            return f"🟡 {qty}"
-        else: 
-            return f"🔴 {qty}"
+        if qty_num >= 50: return f"🟢 {qty} in stock"
+        elif qty_num >= 10: return f"🟡 {qty} in stock"
+        else: return f"🔴 {qty} in stock"
     except:
         return f"⚪ {qty}"
 
-excel_file = "PRICE LIST - MOTECH _Monday, October 12 📅✨.xlsx"
-try:
-    df = load_data(excel_file)
-except FileNotFoundError:
-    st.error(f"File not found: {excel_file}")
-    st.stop()
-
-# --- TOP HEADER & ACCESS CONTROL ---
-col_title, col_auth = st.columns([2, 1])
-
-with col_title:
-    st.title("📦 Wholesale Catalog - Motech Miami")
-
-with col_auth:
-    # Set your secret password here
-    WHOLESALE_PASSWORD = "MOTECHB2B"
-    user_password = st.text_input("🔒 Enter Wholesale Code to view pricing:", type="password")
-
-# --- MAIN PAGE FILTERS ---
-st.markdown("### 🔍 Search & Filters")
-
-col1, col2 = st.columns(2)
-with col1:
-    category_list = ["View All"] + list(df['Main Category'].unique())
-    selected_category = st.selectbox("Select Category", category_list)
-
-if selected_category != "View All":
-    filtered_df = df[df['Main Category'] == selected_category]
-else:
-    filtered_df = df.copy()
+# --- VENTANA EMERGENTE (DIALOG) ---
+@st.dialog("Product Details")
+def show_product_details(row, price_display):
+    # Título principal
+    st.markdown(f"#### {row['MODEL AND DESCRIPTION']}")
     
-with col2:
-    search_text = st.text_input("Search by model, brand, or specification...", "")
-    if search_text:
-        filtered_df = filtered_df[filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False)]
-
-# Second row: Advanced Filters (Only for tech categories)
-if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
-    with st.expander("🛠️ Advanced Specifications Filters", expanded=True):
-        col_a, col_b, col_c, col_d, col_e = st.columns(5)
-        
-        with col_a:
-            brands = st.multiselect("Brand", filtered_df['BRAND'].dropna().unique())
-            if brands: filtered_df = filtered_df[filtered_df['BRAND'].isin(brands)]
-        
-        with col_b:
-            cpus = st.multiselect("Processor", filtered_df['Processor'].unique())
-            if cpus: filtered_df = filtered_df[filtered_df['Processor'].isin(cpus)]
-        
-        with col_c:
-            rams = st.multiselect("RAM", filtered_df['RAM'].unique())
-            if rams: filtered_df = filtered_df[filtered_df['RAM'].isin(rams)]
-        
-        with col_d:
-            storages = st.multiselect("Storage", filtered_df['Storage'].unique())
-            if storages: filtered_df = filtered_df[filtered_df['Storage'].isin(storages)]
-        
-        with col_e:
-            screens = st.multiselect("Screen Size", filtered_df['Screen Size'].unique())
-            if screens: filtered_df = filtered_df[filtered_df['Screen Size'].isin(screens)]
-
-
-# --- PREPARE DATA FOR DISPLAY ---
-visible_columns = ['BRAND', 'MODEL AND DESCRIPTION', 'Processor', 'RAM', 'Storage', 'Screen Size', 'QTY', 'PRICE', 'CONDITION']
-display_df = filtered_df[visible_columns].copy()
-
-# 1. Apply Stock Indicators to QTY column
-display_df['QTY'] = display_df['QTY'].apply(get_stock_indicator)
-
-# 2. Apply Password logic to PRICE column
-if user_password == WHOLESALE_PASSWORD:
-    # Show real prices formatted
-    display_df['PRICE'] = display_df['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
-else:
-    # Hide prices
-    display_df['PRICE'] = "🔒 Hidden"
-
-# --- RESULTS DATA TABLE ---
-st.markdown(f"*Showing {len(filtered_df)} available products*")
-st.dataframe(display_df, use_container_width=True, hide_index=True)
+    # Precio destacado (en verde como tu referencia)
+    st.markdown(f"<h2 style='color: #2e7d32;'>{price_display}</h2>",
