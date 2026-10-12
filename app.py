@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import re
 
-# Configuración de la página
-st.set_page_config(page_title="Catálogo Motech Miami", layout="wide", page_icon="💻")
+# Page configuration
+st.set_page_config(page_title="Motech Miami Catalog", layout="wide", page_icon="💻")
 
-# Ocultar marca de agua de Streamlit
+# Hide Streamlit watermark
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
@@ -15,24 +15,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 @st.cache_data
-def cargar_datos(ruta_archivo):
-    xls = pd.ExcelFile(ruta_archivo)
-    datos_completos = []
+def load_data(file_path):
+    xls = pd.ExcelFile(file_path)
+    all_data = []
     
-    for hoja in xls.sheet_names:
-        # El encabezado real de tu Excel está en la fila 1 (índice 1)
-        df = pd.read_excel(ruta_archivo, sheet_name=hoja, header=1)
+    for sheet in xls.sheet_names:
+        # Header is on row 1 (index 1)
+        df = pd.read_excel(file_path, sheet_name=sheet, header=1)
         df = df.dropna(subset=['MODEL AND DESCRIPTION'])
-        df['Categoría General'] = hoja
-        datos_completos.append(df)
+        df['Main Category'] = sheet
+        all_data.append(df)
         
-    df_final = pd.concat(datos_completos, ignore_index=True)
+    df_final = pd.concat(all_data, ignore_index=True)
     
-    def extraer_specs(fila):
-        desc = str(fila['MODEL AND DESCRIPTION']).upper()
+    def extract_specs(row):
+        desc = str(row['MODEL AND DESCRIPTION']).upper()
         
-        # Procesador
-        cpu = "Otro"
+        # Processor
+        cpu = "Other"
         if "CORE I3" in desc: cpu = "Intel Core i3"
         elif "CORE I5" in desc: cpu = "Intel Core i5"
         elif "CORE I7" in desc: cpu = "Intel Core i7"
@@ -48,61 +48,61 @@ def cargar_datos(ruta_archivo):
         ram_match = re.search(r'(\d+)\s*GB(?:\s*RAM)?', desc)
         ram = f"{ram_match.group(1)}GB" if ram_match else "N/A"
         
-        # Almacenamiento
-        disco_match = re.search(r'(\d+)\s*(?:GB|TB)\s*(?:SSD|HDD|NVME)', desc)
-        disco = disco_match.group(0) if disco_match else "N/A"
+        # Storage
+        storage_match = re.search(r'(\d+)\s*(?:GB|TB)\s*(?:SSD|HDD|NVME)', desc)
+        storage = storage_match.group(0) if storage_match else "N/A"
         
-        # Pantalla
-        pantalla_match = re.search(r'(\d{2}(?:\.\d)?)\s*(?:"|”|-INCH|INCH|’)', desc)
-        pantalla = f"{pantalla_match.group(1)}\"" if pantalla_match else "N/A"
+        # Screen Size
+        screen_match = re.search(r'(\d{2}(?:\.\d)?)\s*(?:"|”|-INCH|INCH|’)', desc)
+        screen = f"{screen_match.group(1)}\"" if screen_match else "N/A"
         
-        return pd.Series([cpu, ram, disco, pantalla])
+        return pd.Series([cpu, ram, storage, screen])
 
-    df_final[['Procesador', 'RAM', 'Almacenamiento', 'Pantalla']] = df_final.apply(extraer_specs, axis=1)
+    df_final[['Processor', 'RAM', 'Storage', 'Screen Size']] = df_final.apply(extract_specs, axis=1)
     return df_final
 
-archivo_excel = "PRICE LIST - MOTECH _Monday, October 12 📅✨.xlsx"
+excel_file = "PRICE LIST - MOTECH _Monday, October 12 📅✨.xlsx"
 try:
-    df = cargar_datos(archivo_excel)
+    df = load_data(excel_file)
 except FileNotFoundError:
-    st.error(f"Archivo no encontrado: {archivo_excel}")
+    st.error(f"File not found: {excel_file}")
     st.stop()
 
-st.title("📦 Catálogo Mayorista - Motech Miami")
+st.title("📦 Wholesale Catalog - Motech Miami")
 
-st.sidebar.header("🔍 Filtros Dinámicos")
-lista_categorias = ["Ver Todo"] + list(df['Categoría General'].unique())
-cat_seleccionada = st.sidebar.selectbox("Seleccionar Categoría", lista_categorias)
+st.sidebar.header("🔍 Dynamic Filters")
+category_list = ["View All"] + list(df['Main Category'].unique())
+selected_category = st.sidebar.selectbox("Select Category", category_list)
 
-if cat_seleccionada != "Ver Todo":
-    df_filtrado = df[df['Categoría General'] == cat_seleccionada]
+if selected_category != "View All":
+    filtered_df = df[df['Main Category'] == selected_category]
 else:
-    df_filtrado = df.copy()
+    filtered_df = df.copy()
 
-if cat_seleccionada in ["LAPTOPS ", "GAMING", "DESKTOP", "Ver Todo"]:
-    marcas = st.sidebar.multiselect("Marca", df_filtrado['BRAND'].dropna().unique())
-    if marcas: df_filtrado = df_filtrado[df_filtrado['BRAND'].isin(marcas)]
+if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
+    brands = st.sidebar.multiselect("Brand", filtered_df['BRAND'].dropna().unique())
+    if brands: filtered_df = filtered_df[filtered_df['BRAND'].isin(brands)]
         
-    cpus = st.sidebar.multiselect("Procesador", df_filtrado['Procesador'].unique())
-    if cpus: df_filtrado = df_filtrado[df_filtrado['Procesador'].isin(cpus)]
+    cpus = st.sidebar.multiselect("Processor", filtered_df['Processor'].unique())
+    if cpus: filtered_df = filtered_df[filtered_df['Processor'].isin(cpus)]
         
-    rams = st.sidebar.multiselect("Memoria RAM", df_filtrado['RAM'].unique())
-    if rams: df_filtrado = df_filtrado[df_filtrado['RAM'].isin(rams)]
+    rams = st.sidebar.multiselect("RAM", filtered_df['RAM'].unique())
+    if rams: filtered_df = filtered_df[filtered_df['RAM'].isin(rams)]
         
-    discos = st.sidebar.multiselect("Almacenamiento", df_filtrado['Almacenamiento'].unique())
-    if discos: df_filtrado = df_filtrado[df_filtrado['Almacenamiento'].isin(discos)]
+    storages = st.sidebar.multiselect("Storage", filtered_df['Storage'].unique())
+    if storages: filtered_df = filtered_df[filtered_df['Storage'].isin(storages)]
         
-    pantallas = st.sidebar.multiselect("Pantalla", df_filtrado['Pantalla'].unique())
-    if pantallas: df_filtrado = df_filtrado[df_filtrado['Pantalla'].isin(pantallas)]
+    screens = st.sidebar.multiselect("Screen Size", filtered_df['Screen Size'].unique())
+    if screens: filtered_df = filtered_df[filtered_df['Screen Size'].isin(screens)]
 
-texto_busqueda = st.text_input("Buscar por modelo, marca o especificación...", "")
-if texto_busqueda:
-    df_filtrado = df_filtrado[df_filtrado['MODEL AND DESCRIPTION'].astype(str).str.contains(texto_busqueda, case=False, na=False)]
+search_text = st.text_input("Search by model, brand, or specification...", "")
+if search_text:
+    filtered_df = filtered_df[filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False)]
 
-st.markdown(f"*Mostrando {len(df_filtrado)} productos disponibles*")
+st.markdown(f"*Showing {len(filtered_df)} available products*")
 
-columnas_visibles = ['BRAND', 'MODEL AND DESCRIPTION', 'Procesador', 'RAM', 'Almacenamiento', 'Pantalla', 'PRICE', 'QTY', 'CONDITION']
-df_mostrar = df_filtrado[columnas_visibles].copy()
-df_mostrar['PRICE'] = df_mostrar['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
+visible_columns = ['BRAND', 'MODEL AND DESCRIPTION', 'Processor', 'RAM', 'Storage', 'Screen Size', 'PRICE', 'QTY', 'CONDITION']
+display_df = filtered_df[visible_columns].copy()
+display_df['PRICE'] = display_df['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
 
-st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+st.dataframe(display_df, use_container_width=True, hide_index=True)
