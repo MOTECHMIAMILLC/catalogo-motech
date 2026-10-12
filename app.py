@@ -62,67 +62,24 @@ def load_data(file_path):
     df_final[['Processor', 'RAM', 'Storage', 'Screen Size']] = df_final.apply(extract_specs, axis=1)
     return df_final
 
+# Function to add visual stock indicators
+def get_stock_indicator(qty):
+    try:
+        if pd.isna(qty): return "⚪ N/A"
+        # Extract the number even if it has a '+' sign (like '50+')
+        qty_str = str(qty).replace('+', '').strip()
+        qty_num = int(qty_str)
+        if qty_num >= 50: 
+            return f"🟢 {qty}"
+        elif qty_num >= 10: 
+            return f"🟡 {qty}"
+        else: 
+            return f"🔴 {qty}"
+    except:
+        return f"⚪ {qty}"
+
 excel_file = "PRICE LIST - MOTECH _Monday, October 12 📅✨.xlsx"
 try:
     df = load_data(excel_file)
 except FileNotFoundError:
-    st.error(f"File not found: {excel_file}")
-    st.stop()
-
-st.title("📦 Wholesale Catalog - Motech Miami")
-
-# --- MAIN PAGE FILTERS ---
-st.markdown("### 🔍 Search & Filters")
-
-# First row: Category and General Search
-col1, col2 = st.columns(2)
-with col1:
-    category_list = ["View All"] + list(df['Main Category'].unique())
-    selected_category = st.selectbox("Select Category", category_list)
-
-if selected_category != "View All":
-    filtered_df = df[df['Main Category'] == selected_category]
-else:
-    filtered_df = df.copy()
-    
-with col2:
-    search_text = st.text_input("Search by model, brand, or specification...", "")
-    if search_text:
-        filtered_df = filtered_df[filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False)]
-
-# Second row: Advanced Filters (Only for tech categories)
-if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
-    with st.expander("🛠️ Advanced Specifications Filters", expanded=True):
-        # We create 5 columns for the specific hardware filters
-        col_a, col_b, col_c, col_d, col_e = st.columns(5)
-        
-        with col_a:
-            brands = st.multiselect("Brand", filtered_df['BRAND'].dropna().unique())
-            if brands: filtered_df = filtered_df[filtered_df['BRAND'].isin(brands)]
-        
-        with col_b:
-            cpus = st.multiselect("Processor", filtered_df['Processor'].unique())
-            if cpus: filtered_df = filtered_df[filtered_df['Processor'].isin(cpus)]
-        
-        with col_c:
-            rams = st.multiselect("RAM", filtered_df['RAM'].unique())
-            if rams: filtered_df = filtered_df[filtered_df['RAM'].isin(rams)]
-        
-        with col_d:
-            storages = st.multiselect("Storage", filtered_df['Storage'].unique())
-            if storages: filtered_df = filtered_df[filtered_df['Storage'].isin(storages)]
-        
-        with col_e:
-            screens = st.multiselect("Screen Size", filtered_df['Screen Size'].unique())
-            if screens: filtered_df = filtered_df[filtered_df['Screen Size'].isin(screens)]
-
-# --- RESULTS DATA TABLE ---
-st.markdown(f"*Showing {len(filtered_df)} available products*")
-
-visible_columns = ['BRAND', 'MODEL AND DESCRIPTION', 'Processor', 'RAM', 'Storage', 'Screen Size', 'PRICE', 'QTY', 'CONDITION']
-display_df = filtered_df[visible_columns].copy()
-# Format the price nicely
-display_df['PRICE'] = display_df['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
-
-# Render the interactive dataframe
-st.dataframe(display_df, use_container_width=True, hide_index=True)
+    st.error(f"File not found:
