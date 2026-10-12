@@ -3,7 +3,7 @@ import pandas as pd
 import re
 
 # Page configuration
-st.set_page_config(page_title="Motech Miami Catalog", layout="wide", page_icon="💻")
+st.set_page_config(page_title="Motech Miami Catalog", layout="wide", page_icon="💻", initial_sidebar_state="expanded")
 
 # Hide Streamlit watermark
 st.markdown("""
