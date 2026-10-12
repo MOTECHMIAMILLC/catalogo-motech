@@ -3,14 +3,15 @@ import pandas as pd
 import re
 
 # Page configuration
-st.set_page_config(page_title="Motech Miami Catalog", layout="wide", page_icon="💻", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Motech Miami Catalog", layout="wide", page_icon="💻")
 
-# Hide Streamlit watermark
+# Hide Streamlit watermark and padding for better iframe integration
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
+        .block-container {padding-top: 1rem; padding-bottom: 0rem;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -70,39 +71,46 @@ except FileNotFoundError:
 
 st.title("📦 Wholesale Catalog - Motech Miami")
 
-st.sidebar.header("🔍 Dynamic Filters")
-category_list = ["View All"] + list(df['Main Category'].unique())
-selected_category = st.sidebar.selectbox("Select Category", category_list)
+# --- MAIN PAGE FILTERS ---
+st.markdown("### 🔍 Search & Filters")
+
+# First row: Category and General Search
+col1, col2 = st.columns(2)
+with col1:
+    category_list = ["View All"] + list(df['Main Category'].unique())
+    selected_category = st.selectbox("Select Category", category_list)
 
 if selected_category != "View All":
     filtered_df = df[df['Main Category'] == selected_category]
 else:
     filtered_df = df.copy()
+    
+with col2:
+    search_text = st.text_input("Search by model, brand, or specification...", "")
+    if search_text:
+        filtered_df = filtered_df[filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False)]
 
+# Second row: Advanced Filters (Only for tech categories)
 if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
-    brands = st.sidebar.multiselect("Brand", filtered_df['BRAND'].dropna().unique())
-    if brands: filtered_df = filtered_df[filtered_df['BRAND'].isin(brands)]
+    with st.expander("🛠️ Advanced Specifications Filters", expanded=True):
+        # We create 5 columns for the specific hardware filters
+        col_a, col_b, col_c, col_d, col_e = st.columns(5)
         
-    cpus = st.sidebar.multiselect("Processor", filtered_df['Processor'].unique())
-    if cpus: filtered_df = filtered_df[filtered_df['Processor'].isin(cpus)]
+        with col_a:
+            brands = st.multiselect("Brand", filtered_df['BRAND'].dropna().unique())
+            if brands: filtered_df = filtered_df[filtered_df['BRAND'].isin(brands)]
         
-    rams = st.sidebar.multiselect("RAM", filtered_df['RAM'].unique())
-    if rams: filtered_df = filtered_df[filtered_df['RAM'].isin(rams)]
+        with col_b:
+            cpus = st.multiselect("Processor", filtered_df['Processor'].unique())
+            if cpus: filtered_df = filtered_df[filtered_df['Processor'].isin(cpus)]
         
-    storages = st.sidebar.multiselect("Storage", filtered_df['Storage'].unique())
-    if storages: filtered_df = filtered_df[filtered_df['Storage'].isin(storages)]
+        with col_c:
+            rams = st.multiselect("RAM", filtered_df['RAM'].unique())
+            if rams: filtered_df = filtered_df[filtered_df['RAM'].isin(rams)]
         
-    screens = st.sidebar.multiselect("Screen Size", filtered_df['Screen Size'].unique())
-    if screens: filtered_df = filtered_df[filtered_df['Screen Size'].isin(screens)]
-
-search_text = st.text_input("Search by model, brand, or specification...", "")
-if search_text:
-    filtered_df = filtered_df[filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False)]
-
-st.markdown(f"*Showing {len(filtered_df)} available products*")
-
-visible_columns = ['BRAND', 'MODEL AND DESCRIPTION', 'Processor', 'RAM', 'Storage', 'Screen Size', 'PRICE', 'QTY', 'CONDITION']
-display_df = filtered_df[visible_columns].copy()
-display_df['PRICE'] = display_df['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
-
-st.dataframe(display_df, use_container_width=True, hide_index=True)
+        with col_d:
+            storages = st.multiselect("Storage", filtered_df['Storage'].unique())
+            if storages: filtered_df = filtered_df[filtered_df['Storage'].isin(storages)]
+        
+        with col_e:
+            screens = st.multiselect("Screen Size", filtered_df['Screen Size'].
