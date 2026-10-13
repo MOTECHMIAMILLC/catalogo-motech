@@ -74,7 +74,7 @@ def show_product_details(row, price_display):
     # Título principal
     st.markdown(f"#### {row['MODEL AND DESCRIPTION']}")
     
-    # Precio destacado (en verde como tu referencia)
+    # Precio destacado
     st.markdown(f"<h2 style='color: #2e7d32;'>{price_display}</h2>", unsafe_allow_html=True)
     
     # Indicadores de stock y condición
@@ -95,7 +95,6 @@ def show_product_details(row, price_display):
         
     with col_value:
         st.write(str(row['BRAND']))
-        # Usamos st.code para el SKU para que aparezca el botón automático de "Copiar"
         st.code(str(row['ITEM']), language=None)
         st.write(str(row['Processor']))
         st.write(str(row['RAM']))
@@ -155,7 +154,7 @@ if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
             if screens: filtered_df = filtered_df[filtered_df['Screen Size'].isin(screens)]
 
 # --- PREPARAR TABLA ---
-st.markdown(f"*Showing {len(filtered_df)} available products. Click on a product to view details.*")
+st.markdown(f"**Showing {len(filtered_df)} available products.** 👆 *Click on any Model and Description to view full details and SKU.*")
 
 visible_columns = ['BRAND', 'ITEM', 'MODEL AND DESCRIPTION', 'Processor', 'RAM', 'Storage', 'Screen Size', 'QTY', 'PRICE', 'CONDITION']
 display_df = filtered_df[visible_columns].copy()
@@ -167,13 +166,14 @@ if user_password == WHOLESALE_PASSWORD:
 else:
     display_df['PRICE'] = "🔒 Hidden"
 
-# Mostrar la tabla permitiendo selección (on_select)
+# Mostrar la tabla permitiendo selección (on_select) y CON LA NUEVA ALTURA (height=800)
 event = st.dataframe(
     display_df, 
     use_container_width=True, 
     hide_index=True,
     on_select="rerun",
-    selection_mode="single-row"
+    selection_mode="single-row",
+    height=800
 )
 
 # Si el usuario hace clic en una fila, abrimos la ventana emergente
