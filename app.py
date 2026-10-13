@@ -130,9 +130,14 @@ else:
     filtered_df = df.copy()
     
 with col2:
-    search_text = st.text_input("Search by model, brand, or specification...", "")
+    search_text = st.text_input("Search by item/SKU, model, brand, or specification...", "")
     if search_text:
-        filtered_df = filtered_df[filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False)]
+        # BÚSQUEDA MULTI-COLUMNA (ITEM + MODEL AND DESCRIPTION + BRAND)
+        filtered_df = filtered_df[
+            filtered_df['ITEM'].astype(str).str.contains(search_text, case=False, na=False) |
+            filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False) |
+            filtered_df['BRAND'].astype(str).str.contains(search_text, case=False, na=False)
+        ]
 
 if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
     with st.expander("🛠️ Advanced Specifications Filters", expanded=True):
