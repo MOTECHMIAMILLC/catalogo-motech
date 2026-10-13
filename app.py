@@ -123,4 +123,91 @@ with col_auth:
         <style>
             div[data-testid="stVerticalBlockBorderWrapper"] {
                 border: 1px solid rgba(168, 85, 247, 0.7) !important;
-                background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(13, 1
+                background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(13, 12, 19, 0.85) 100%) !important;
+                border-radius: 14px !important;
+                padding: 12px 18px !important;
+                box-shadow: 0 0 18px rgba(168, 85, 247, 0.3) !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    with st.container(border=True):
+        st.markdown("<div style='color: #c084fc; font-weight: 800; font-size: 13px; letter-spacing: 1px; margin-bottom: 4px;'>🔑 B2B WHOLESALE ACCESS</div>", unsafe_allow_html=True)
+        user_password = st.text_input(
+            "Enter Wholesale Code to view pricing:", 
+            type="password",
+            placeholder="Enter access code here...",
+            label_visibility="visible"
+        )
+
+# --- FILTROS ---
+st.markdown("### 🔍 Search & Filters")
+col1, col2 = st.columns(2)
+with col1:
+    category_list = ["View All"] + list(df['Main Category'].unique())
+    selected_category = st.selectbox("Select Category", category_list)
+
+if selected_category != "View All":
+    filtered_df = df[df['Main Category'] == selected_category]
+else:
+    filtered_df = df.copy()
+    
+with col2:
+    search_text = st.text_input("Search by Item/SKU, model, brand, or specification...", "")
+    if search_text:
+        # BÚSQUEDA MULTI-COLUMNA (ITEM + MODEL AND DESCRIPTION + BRAND)
+        filtered_df = filtered_df[
+            filtered_df['ITEM'].astype(str).str.contains(search_text, case=False, na=False) |
+            filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False) |
+            filtered_df['BRAND'].astype(str).str.contains(search_text, case=False, na=False)
+        ]
+
+if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
+    with st.expander("🛠️ Advanced Specifications Filters", expanded=True):
+        col_a, col_b, col_c, col_d, col_e = st.columns(5)
+        with col_a:
+            brands = st.multiselect("Brand", filtered_df['BRAND'].dropna().unique())
+            if brands: filtered_df = filtered_df[filtered_df['BRAND'].isin(brands)]
+        with col_b:
+            cpus = st.multiselect("Processor", filtered_df['Processor'].unique())
+            if cpus: filtered_df = filtered_df[filtered_df['Processor'].isin(cpus)]
+        with col_c:
+            rams = st.multiselect("RAM", filtered_df['RAM'].unique())
+            if rams: filtered_df = filtered_df[filtered_df['RAM'].isin(rams)]
+        with col_d:
+            storages = st.multiselect("Storage", filtered_df['Storage'].unique())
+            if storages: filtered_df = filtered_df[filtered_df['Storage'].isin(storages)]
+        with col_e:
+            screens = st.multiselect("Screen Size", filtered_df['Screen Size'].unique())
+            if screens: filtered_df = filtered_df[filtered_df['Screen Size'].isin(screens)]
+
+# --- PREPARAR TABLA ---
+st.markdown(f"**Showing {len(filtered_df)} available products.** 👆 *Click on any Model and Description to view full details and SKU.*")
+
+visible_columns = ['BRAND', 'ITEM', 'MODEL AND DESCRIPTION', 'Processor', 'RAM', 'Storage', 'Screen Size', 'QTY', 'PRICE', 'CONDITION']
+display_df = filtered_df[visible_columns].copy()
+
+display_df['QTY'] = display_df['QTY'].apply(get_stock_indicator)
+
+if user_password == WHOLESALE_PASSWORD:
+    display_df['PRICE'] = display_df['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
+else:
+    display_df['PRICE'] = "🔒 Hidden"
+
+# Mostrar la tabla permitiendo selección (on_select) y CON LA NUEVA ALTURA (height=800)
+event = st.dataframe(
+    display_df, 
+    use_container_width=True, 
+    hide_index=True,
+    on_select="rerun",
+    selection_mode="single-row",
+    height=800
+)
+
+# Si el usuario hace clic en una fila, abrimos la ventana emergente
+if len(event.selection.rows) > 0:
+    selected_index = event.selection.rows[0]
+    selected_row = display_df.iloc[selected_index]
+    
+    # Llamamos a la función del modal pasándole la fila seleccionada
+    show_product_details(selected_row, selected_row['PRICE'])
