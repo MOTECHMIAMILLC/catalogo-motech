@@ -28,6 +28,12 @@ def load_data(file_path):
         
     df_final = pd.concat(all_data, ignore_index=True)
     
+    # Asegurarnos de que MOQ y ETA existan en el dataframe si vienen en el Excel
+    if 'MOQ' not in df_final.columns:
+        df_final['MOQ'] = "1"
+    if 'ETA' not in df_final.columns:
+        df_final['ETA'] = "In Stock"
+
     def extract_specs(row):
         desc = str(row['MODEL AND DESCRIPTION']).upper()
         
@@ -54,6 +60,7 @@ def load_data(file_path):
         
         return pd.Series([cpu, ram, storage, screen])
 
+    # Se mantienen estas columnas internamente para que funcionen los filtros avanzados
     df_final[['Processor', 'RAM', 'Storage', 'Screen Size']] = df_final.apply(extract_specs, axis=1)
     return df_final
 
@@ -77,8 +84,8 @@ def show_product_details(row, price_display):
     # Precio destacado
     st.markdown(f"<h2 style='color: #2e7d32;'>{price_display}</h2>", unsafe_allow_html=True)
     
-    # Indicadores de stock y condición
-    st.markdown(f"**{row['QTY']}** &nbsp; • &nbsp; {row['CONDITION']}")
+    # Indicadores de stock, MOQ, ETA y condición
+    st.markdown(f"**Stock:** {row['QTY']} &nbsp; • &nbsp; **MOQ:** {row.get('MOQ', 'N/A')} &nbsp; • &nbsp; **ETA:** {row.get('ETA', 'N/A')} &nbsp; • &nbsp; **Condition:** {row['CONDITION']}")
     
     st.divider()
     
@@ -118,7 +125,6 @@ with col_title:
 with col_auth:
     WHOLESALE_PASSWORD = "MOTECHB2B"
     
-    # Estilos de resplandor neón violeta para la casilla de código
     st.markdown("""
         <style>
             div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -155,7 +161,6 @@ else:
 with col2:
     search_text = st.text_input("Search by Item/SKU, model, brand, or specification...", "")
     if search_text:
-        # BÚSQUEDA MULTI-COLUMNA (ITEM + MODEL AND DESCRIPTION + BRAND)
         filtered_df = filtered_df[
             filtered_df['ITEM'].astype(str).str.contains(search_text, case=False, na=False) |
             filtered_df['MODEL AND DESCRIPTION'].astype(str).str.contains(search_text, case=False, na=False) |
@@ -184,17 +189,24 @@ if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
 # --- PREPARAR TABLA ---
 st.markdown(f"**Showing {len(filtered_df)} available products.** 👆 *Click on any Model and Description to view full details and SKU.*")
 
-visible_columns = ['BRAND', 'ITEM', 'MODEL AND DESCRIPTION', 'Processor', 'RAM', 'Storage', 'Screen Size', 'QTY', 'PRICE', 'CONDITION']
-display_df = filtered_df[visible_columns].copy()
+# NUEVAS COLUMNAS VISIBLES: Se reemplazaron Processor, RAM, Storage y Screen Size por QTY, MOQ y ETA
+visible_columns = ['BRAND', 'ITEM', 'MODEL AND DESCRIPTION', 'QTY', 'MOQ', 'ETA', 'PRICE', 'CONDITION']
 
-display_df['QTY'] = display_df['QTY'].apply(get_stock_indicator)
+# Filtrar asegurando solo las columnas que existen en filtered_df
+available_visible_cols = [col for col in visible_columns if col in filtered_df.columns]
+display_df = filtered_df[available_visible_cols].copy()
+
+if 'QTY' in display_df.columns:
+    display_df['QTY'] = display_df['QTY'].apply(get_stock_indicator)
 
 if user_password == WHOLESALE_PASSWORD:
-    display_df['PRICE'] = display_df['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
+    if 'PRICE' in display_df.columns:
+        display_df['PRICE'] = display_df['PRICE'].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) and isinstance(x, (int, float)) else x)
 else:
-    display_df['PRICE'] = "🔒 Hidden"
+    if 'PRICE' in display_df.columns:
+        display_df['PRICE'] = "🔒 Hidden"
 
-# Mostrar la tabla permitiendo selección (on_select) y CON LA NUEVA ALTURA (height=800)
+# Mostrar la tabla permitiendo selección (on_select)
 event = st.dataframe(
     display_df, 
     use_container_width=True, 
@@ -204,10 +216,10 @@ event = st.dataframe(
     height=800
 )
 
-# Si el usuario hace clic en una fila, abrimos la ventana emergente
+# Si el usuario hace clic en una fila, abrimos la ventana emergente con los detalles
 if len(event.selection.rows) > 0:
     selected_index = event.selection.rows[0]
-    selected_row = display_df.iloc[selected_index]
+    selected_row = filtered_df.iloc[selected_index]
     
-    # Llamamos a la función del modal pasándole la fila seleccionada
-    show_product_details(selected_row, selected_row['PRICE'])
+    price_val = display_df.iloc[selected_index]['PRICE'] if 'PRICE' in display_df.columns else "🔒 Hidden"
+    show_product_details(selected_row, price_val)
