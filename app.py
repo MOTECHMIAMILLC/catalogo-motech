@@ -109,7 +109,7 @@ def show_product_details(row, price_display):
         st.write(str(row['Screen Size']))
 
 # --- CARGA DE DATOS ---
-excel_file = "PRICE LIST - MOTECH _Monday, October 12 📅✨.xlsx"
+excel_file = "PRICE LIST - MOTECH MIAMI.xlsx"
 try:
     df = load_data(excel_file)
 except FileNotFoundError:
