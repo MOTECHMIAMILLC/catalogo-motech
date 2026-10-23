@@ -21,18 +21,65 @@ def load_data(file_path):
     all_data = []
     
     for sheet in xls.sheet_names:
-        df = pd.read_excel(file_path, sheet_name=sheet, header=1)
-        df = df.dropna(subset=['MODEL AND DESCRIPTION'])
-        df['Main Category'] = sheet
-        all_data.append(df)
+        df_raw = pd.read_excel(file_path, sheet_name=sheet)
+        if df_raw.empty:
+            continue
+            
+        # 1. Detectar automáticamente en qué fila se encuentran las cabeceras
+        header_row = None
+        for r_idx in range(min(10, len(df_raw))):
+            row_str = " ".join([str(v).upper() for v in df_raw.iloc[r_idx].values if pd.notna(v)])
+            if any(k in row_str for k in ['MODEL', 'DESCRIPTION', 'ITEM', 'BRAND', 'PRICE']):
+                header_row = r_idx
+                break
+                
+        # 2. Ajustar las columnas según la fila de cabecera encontrada
+        if header_row is not None:
+            df = df_raw.iloc[header_row + 1:].copy()
+            df.columns = [str(c).strip() for c in df_raw.iloc[header_row].values]
+        else:
+            df = df_raw.copy()
+            df.columns = [str(c).strip() for c in df.columns]
+
+        # 3. Encontrar la columna de modelo y descripción (sin importar espacios extra)
+        col_desc = next(
+            (c for c in df.columns if any(k in str(c).upper() for k in ['MODEL AND DESCRIPTION', 'DESCRIPTION', 'MODEL', 'ITEM'])), 
+            None
+        )
+        
+        if col_desc:
+            df = df.dropna(subset=[col_desc])
+            # Estandarizar el nombre de la columna internamente a 'MODEL AND DESCRIPTION'
+            df = df.rename(columns={col_desc: 'MODEL AND DESCRIPTION'})
+            df['Main Category'] = sheet
+            all_data.append(df)
+        
+    if not all_data:
+        st.error("No se encontraron datos de productos en el archivo Excel.")
+        st.stop()
         
     df_final = pd.concat(all_data, ignore_index=True)
     
-    # Asegurarnos de que MOQ y ETA existan en el dataframe si vienen en el Excel
+    # Estandarizar nombre de columnas principales si tienen ligeras variaciones
+    cols_rename = {}
+    for c in df_final.columns:
+        cu = str(c).upper().strip()
+        if cu == 'BRAND': cols_rename[c] = 'BRAND'
+        elif cu == 'ITEM': cols_rename[c] = 'ITEM'
+        elif cu == 'PRICE': cols_rename[c] = 'PRICE'
+        elif cu == 'QTY': cols_rename[c] = 'QTY'
+        elif cu == 'MOQ': cols_rename[c] = 'MOQ'
+        elif cu == 'ETA': cols_rename[c] = 'ETA'
+        elif cu == 'CONDITION': cols_rename[c] = 'CONDITION'
+    df_final = df_final.rename(columns=cols_rename)
+    
+    # Asegurarnos de que MOQ y ETA existan en el dataframe
     if 'MOQ' not in df_final.columns:
         df_final['MOQ'] = "1"
     if 'ETA' not in df_final.columns:
         df_final['ETA'] = "In Stock"
+    if 'CONDITION' not in df_final.columns:
+        df_final['CONDITION'] = "NEW"
 
     def extract_specs(row):
         desc = str(row['MODEL AND DESCRIPTION']).upper()
@@ -60,7 +107,7 @@ def load_data(file_path):
         
         return pd.Series([cpu, ram, storage, screen])
 
-    # Se mantienen estas columnas internamente para que funcionen los filtros avanzados
+    # Se mantienen estas columnas internamente para los filtros avanzados
     df_final[['Processor', 'RAM', 'Storage', 'Screen Size']] = df_final.apply(extract_specs, axis=1)
     return df_final
 
@@ -85,7 +132,7 @@ def show_product_details(row, price_display):
     st.markdown(f"<h2 style='color: #2e7d32;'>{price_display}</h2>", unsafe_allow_html=True)
     
     # Indicadores de stock, MOQ, ETA y condición
-    st.markdown(f"**Stock:** {row['QTY']} &nbsp; • &nbsp; **MOQ:** {row.get('MOQ', 'N/A')} &nbsp; • &nbsp; **ETA:** {row.get('ETA', 'N/A')} &nbsp; • &nbsp; **Condition:** {row['CONDITION']}")
+    st.markdown(f"**Stock:** {row['QTY']} &nbsp; • &nbsp; **MOQ:** {row.get('MOQ', 'N/A')} &nbsp; • &nbsp; **ETA:** {row.get('ETA', 'N/A')} &nbsp; • &nbsp; **Condition:** {row.get('CONDITION', 'NEW')}")
     
     st.divider()
     
@@ -101,12 +148,12 @@ def show_product_details(row, price_display):
         st.write("**Screen Size**")
         
     with col_value:
-        st.write(str(row['BRAND']))
-        st.code(str(row['ITEM']), language=None)
-        st.write(str(row['Processor']))
-        st.write(str(row['RAM']))
-        st.write(str(row['Storage']))
-        st.write(str(row['Screen Size']))
+        st.write(str(row.get('BRAND', 'N/A')))
+        st.code(str(row.get('ITEM', 'N/A')), language=None)
+        st.write(str(row.get('Processor', 'N/A')))
+        st.write(str(row.get('RAM', 'N/A')))
+        st.write(str(row.get('Storage', 'N/A')))
+        st.write(str(row.get('Screen Size', 'N/A')))
 
 # --- CARGA DE DATOS ---
 excel_file = "PRICE LIST - MOTECH MIAMI.xlsx"
@@ -189,10 +236,8 @@ if selected_category in ["LAPTOPS ", "GAMING", "DESKTOP", "View All"]:
 # --- PREPARAR TABLA ---
 st.markdown(f"**Showing {len(filtered_df)} available products.** 👆 *Click on any Model and Description to view full details and SKU.*")
 
-# NUEVAS COLUMNAS VISIBLES: Se reemplazaron Processor, RAM, Storage y Screen Size por QTY, MOQ y ETA
 visible_columns = ['BRAND', 'ITEM', 'MODEL AND DESCRIPTION', 'QTY', 'MOQ', 'ETA', 'PRICE', 'CONDITION']
 
-# Filtrar asegurando solo las columnas que existen en filtered_df
 available_visible_cols = [col for col in visible_columns if col in filtered_df.columns]
 display_df = filtered_df[available_visible_cols].copy()
 
