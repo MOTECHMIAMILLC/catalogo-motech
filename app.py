@@ -49,7 +49,6 @@ def load_data(file_path):
         
         if col_desc:
             df = df.dropna(subset=[col_desc])
-            # Estandarizar el nombre de la columna internamente a 'MODEL AND DESCRIPTION'
             df = df.rename(columns={col_desc: 'MODEL AND DESCRIPTION'})
             df['Main Category'] = sheet
             all_data.append(df)
@@ -73,6 +72,9 @@ def load_data(file_path):
         elif cu == 'CONDITION': cols_rename[c] = 'CONDITION'
     df_final = df_final.rename(columns=cols_rename)
     
+    # Eliminar columnas duplicadas si existen en el origen
+    df_final = df_final.loc[:, ~df_final.columns.duplicated()]
+
     # Asegurarnos de que MOQ y ETA existan en el dataframe
     if 'MOQ' not in df_final.columns:
         df_final['MOQ'] = "1"
@@ -238,8 +240,14 @@ st.markdown(f"**Showing {len(filtered_df)} available products.** 👆 *Click on 
 
 visible_columns = ['BRAND', 'ITEM', 'MODEL AND DESCRIPTION', 'QTY', 'MOQ', 'ETA', 'PRICE', 'CONDITION']
 
-available_visible_cols = [col for col in visible_columns if col in filtered_df.columns]
+# Filtrar solo columnas existentes y asegurar que NO existan duplicadas
+available_visible_cols = []
+for col in visible_columns:
+    if col in filtered_df.columns and col not in available_visible_cols:
+        available_visible_cols.append(col)
+
 display_df = filtered_df[available_visible_cols].copy()
+display_df = display_df.loc[:, ~display_df.columns.duplicated()]
 
 if 'QTY' in display_df.columns:
     display_df['QTY'] = display_df['QTY'].apply(get_stock_indicator)
